@@ -8,6 +8,15 @@ server = function(input, output) {
   options(httr_oauth_cache = TRUE)
   setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
   
-  # Query to Twitter
+  # Query Twitter
+  tweettable <- reactive({  
+    tweets <- twListToDF(searchTwitter(input$searchkw, 
+                                       n = 100,
+                                       geocode = paste0(input$lat, ",", input$long, ",15mi"))) 
+  })
   
+  # Dynamic Table of Query
+  output$tweettable = renderTable(
+    tweettable()[,c("text", "screenName", "longitude", "latitude", "created")]
+  )
 }
