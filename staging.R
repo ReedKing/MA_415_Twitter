@@ -5,7 +5,7 @@ access_secret <- "2mPrTaM39pGdh3JAM97dUYO2HHh9PQRJ9Vvwe2kMP5bsm"
 options(httr_oauth_cache = TRUE)
 setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
 
-tweets <- searchTwitter("#Trump", n = 15, lang = "en")
+tweets <- searchTwitter("#christmas", n = 15, lang = "en")
 tweets <- twListToDF(tweets)
 
 searchTwitter('fenway')
@@ -42,3 +42,19 @@ tweets_geoolocated.df <- twListToDF(tweets_geolocated)
   usersDF <- cbind(usersDF, locations)
   usersDF <- usersDF[!is.na(usersDF[, "lon"]),]
     
+  
+  clean_tweets <- tweets$text
+  clean_tweets <- sapply(clean_tweets, function(row) iconv(row, "latin1", "ASCII", sub = ""))
+  clean_tweets <- tolower(clean_tweets)
+  clean_tweets <- removeWords(clean_tweets, c(stopwords("en"), "rt", "via"))
+  clean_tweets <- removePunctuation(clean_tweets, TRUE)
+  clean_tweets <- gsub("^\\s+|\\s+$", "", clean_tweets)
+  clean_tweets <- as.character(clean_tweets)
+  clean_tweets <- data.frame(clean_tweets)
+  
+  binary <- calculate_sentiment(clean_tweets$clean_tweets)
+  category <- data.frame(calculate_total_presence_sentiment(clean_tweets$clean_tweets))
+                         colnames(category) <- as.character(unlist(category[1,]))
+                         category = category[-1, ]
+  
+  
