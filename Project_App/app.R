@@ -8,6 +8,7 @@
 #
 
 library(shiny)
+library(ggmap)
 library(leaflet)
 library(twitteR)
 library(DT)
@@ -16,7 +17,7 @@ ui <- shinyUI(fluidPage(
   theme = "flatly.css",
   titlePanel("Twitter and Dynamic Sentiment Analysis"),
   navbarPage(title = "Sections",
-             tabPanel("Description of Project",
+             tabPanel("Discussion",
                       h1("Brief:"),
                       p("This tab contains more detailed discussion of each of the various moving parts
                         of this project than the code commentary on their respective tabs will contain, if at
@@ -41,11 +42,11 @@ ui <- shinyUI(fluidPage(
              tabPanel("Data Import",
                       textInput("searchkw", label = "Search For:", value = "#Trump"),
                       p("Enter your search here. This will feed to a reactive version of searchTwitter().
-                        Remember, you can use 'OR' and 'from:' to do multiple terms or specific tweeters respectively"),
+                        Remember, you can use 'OR' and 'from:' to query multiple terms or specific tweeters respectively"),
+                      h4("LET IT SIT UNTIL THE #TRUMP TWEETS RETURN, IT WILL BREAK OTHERWISE"),
                       br(),
-                      p("Below is a table of what you pulled, I've set a limit of 250 to prevent Shiny from getting too hung up
-                        while it pulls them, but before proceeding make sure that whatever term you choose populates a solid number of tweets, or 
-                        the other analysis might be a bit bland"),
+                      h2("5 most recent tweets"),
+                      p("(if this doesn't populate your query did not return results)"),
                       tableOutput("table")),
              tabPanel("Word Cloud"),
              tabPanel("User Location Map"),
@@ -65,17 +66,26 @@ server <- shinyServer(function(input, output) {
   
   # Query Twitter
   
-  twitterData <- reactive(function(){
-    tweets <- searchTwitter(input$searchkw, n = 250, lang = en)
+  twitterData <- (function(){
+    tweets <- searchTwitter(input$searchkw, n = 250, lang = "en")
     twListToDF(tweets)
   })
   
   # Dynamic Table of Query
   
   output$table <- renderTable({
-    head(twitterData()[1],n=5)
+    head(twitterData()[,c("text", "screenName", "retweetCount")],n=5)
   })
 })
+
+ # Associate Tweets with User Location
+
+ twitterUserData <- (function(){
+   users <- lookupUsers(twitterData$screenName)
+   usersDF <- twListToDF(users)
+   usersLocation <- !is.na(userDF$location)
+   located <- geocode(usersDF$location[usersLocation])
+ })
 
 # Run the application 
 shinyApp(ui = ui, server = server)
