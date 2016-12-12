@@ -5,7 +5,8 @@ access_secret <- "2mPrTaM39pGdh3JAM97dUYO2HHh9PQRJ9Vvwe2kMP5bsm"
 options(httr_oauth_cache = TRUE)
 setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
 
-tweets <- searchTwitter("#christmas", n = 15, lang = "en")
+tweets <- searchTwitter("#Weed", n = 100, lang = "en")
+tweets <- strip_retweets(tweets)
 tweets <- twListToDF(tweets)
 
 searchTwitter('fenway')
@@ -50,11 +51,11 @@ tweets_geoolocated.df <- twListToDF(tweets_geolocated)
   clean_tweets <- removePunctuation(clean_tweets, TRUE)
   clean_tweets <- gsub("^\\s+|\\s+$", "", clean_tweets)
   clean_tweets <- as.character(clean_tweets)
-  clean_tweets <- data.frame(clean_tweets)
   
-  binary <- calculate_sentiment(clean_tweets$clean_tweets)
-  category <- data.frame(calculate_total_presence_sentiment(clean_tweets$clean_tweets))
-                         colnames(category) <- as.character(unlist(category[1,]))
-                         category = category[-1, ]
   
+    category <- data.frame(calculate_score(clean_tweets))
+
+    
+
+  ggplot(category, aes(x = calculate_score.clean_tweets., fill = )) + geom_bar()
   
