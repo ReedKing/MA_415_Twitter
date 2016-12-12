@@ -12,6 +12,8 @@ library(ggmap)
 library(leaflet)
 library(twitteR)
 library(DT)
+library(tm)
+library(wordcloud)
 
 ui <- shinyUI(fluidPage(
   theme = "flatly.css",
@@ -36,7 +38,7 @@ ui <- shinyUI(fluidPage(
                         I bet you'll have seen a dozen of those already. So try 'Frosted Flakes', 'Spinoza', or 'Ubuntu', it's your call really. To me, 
                         what this project ended up being about was making the jump from using tools, to making one."),
                       br(),
-                      h3("Mapping"),
+                      h3("Word Cloud"),
                       p("Placeholder")
                       ),
              tabPanel("Data Import",
@@ -45,10 +47,11 @@ ui <- shinyUI(fluidPage(
                         Remember, you can use 'OR' and 'from:' to query multiple terms or specific tweeters respectively"),
                       h4("LET IT SIT UNTIL THE #TRUMP TWEETS RETURN, IT WILL BREAK OTHERWISE"),
                       br(),
-                      h2("5 most recent tweets"),
+                      h2("10 most recent tweets"),
                       p("(if this doesn't populate your query did not return results)"),
                       tableOutput("table")),
-             tabPanel("Word Cloud"),
+             tabPanel("Word Cloud",
+                      plotOutput("wordcloud")),
              tabPanel("User Location Map"),
              tabPanel("Sentiment Analysis")
              ))
@@ -66,7 +69,7 @@ server <- shinyServer(function(input, output) {
   
   # Query Twitter
   
-  twitterData <- (function(){
+  twitterData <- reactive({
     tweets <- searchTwitter(input$searchkw, n = 250, lang = "en")
     twListToDF(tweets)
   })
@@ -74,18 +77,41 @@ server <- shinyServer(function(input, output) {
   # Dynamic Table of Query
   
   output$table <- renderTable({
-    head(twitterData()[,c("text", "screenName", "retweetCount")],n=5)
+    head(twitterData()[,c("text", "screenName", "retweetCount")],n = 10)
   })
+
+
+
+ # Word Cloud
+
+twitterData <- reactive({
+  tweets <- searchTwitter(input$searchkw, n = 250, lang = "en")
+  twListToDF(tweets)
 })
-
+  
+ output$wordcloud <- renderPlot({
+   words <- enc2native(twitterData()[,c("text")])
+   words <- removeWords(words, c(stopwords("en"), "RT", input$searchkw))
+   words <- tolower(words)
+   words <- removePunctuation(words, TRUE)
+   words <- unlist(strsplit(words, " "))
+   words <- removeWords(words, c(stopwords("en"), "RT", " ", ""))
+   words <- sort(table(words), TRUE)
+   wordcloud(names(words), words, random.color = TRUE, colors = rainbow(10), scale = c(15, 2), max.words = 50)
+})
+   
+ 
  # Associate Tweets with User Location
-
+ 
  twitterUserData <- (function(){
    users <- lookupUsers(twitterData$screenName)
    usersDF <- twListToDF(users)
    usersLocation <- !is.na(userDF$location)
    located <- geocode(usersDF$location[usersLocation])
  })
+ 
+ 
+})
 
 # Run the application 
 shinyApp(ui = ui, server = server)
