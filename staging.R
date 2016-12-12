@@ -5,12 +5,12 @@ access_secret <- "2mPrTaM39pGdh3JAM97dUYO2HHh9PQRJ9Vvwe2kMP5bsm"
 options(httr_oauth_cache = TRUE)
 setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
 
-tweets <- searchTwitter("#Trump", n = )
+tweets <- searchTwitter("#Trump", n = 250, lang = "en")
 tweets <- twListToDF(tweets)
 
 searchTwitter('fenway')
 
-tweets_geolocated <- searchTwitter("Obamacare OR ACA OR 'Affordable Care Act' OR #ACA", n=100, lang="en", geocode='34.04993,-118.24084,50mi', since="2014-08-20")
+tweets_geolocated <- searchTwitter("#Trump", n=250, lang="en")
 tweets_geoolocated.df <- twListToDF(tweets_geolocated)
 
 
@@ -19,3 +19,16 @@ tweets_geoolocated.df <- twListToDF(tweets_geolocated)
   usersLocation <- !is.na(usersDF$location)
   located <- geocode(usersDF$location[usersLocation])
   
+  
+  output$wordcloud <- renderPlot(function(){
+    
+    words <- enc2native(tweets$text)
+    words <- removeWords(words, c(stopwords("en"), "RT", "#trump"))
+    words <- tolower(words)
+    words <- removePunctuation(words, TRUE)
+    words <- unlist(strsplit(words, " "))
+    words <- removeWords(words, c(stopwords("en"), "RT", " ", ""))
+    words <- sort(table(words), TRUE)
+    wordcloud(names(words), words, random.color = TRUE, colors = rainbow(10), scale = c(15, 2))
+    
+  })
