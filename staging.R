@@ -5,7 +5,7 @@ access_secret <- "2mPrTaM39pGdh3JAM97dUYO2HHh9PQRJ9Vvwe2kMP5bsm"
 options(httr_oauth_cache = TRUE)
 setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
 
-tweets <- searchTwitter("#Trump", n = 250, lang = "en")
+tweets <- searchTwitter("#Trump", n = 15, lang = "en")
 tweets <- twListToDF(tweets)
 
 searchTwitter('fenway')
@@ -32,3 +32,13 @@ tweets_geoolocated.df <- twListToDF(tweets_geolocated)
     wordcloud(names(words), words, random.color = TRUE, colors = rainbow(10), scale = c(15, 2))
     
   })
+  
+
+    
+  users <- lookupUsers(tweets$screenName)
+  usersDF <- twListToDF(users)
+  usersDF <- usersDF[!(is.na(usersDF$location) | usersDF$location == ""), ]
+  locations <- geocode(usersDF$location)
+  usersDF <- cbind(usersDF, locations)
+  usersDF <- usersDF[!is.na(usersDF[, "lon"]),]
+    

@@ -8,6 +8,7 @@
 #
 
 library(shiny)
+library(magrittr)
 library(ggmap)
 library(leaflet)
 library(twitteR)
@@ -27,22 +28,32 @@ ui <- shinyUI(fluidPage(
                       br(),
                       h3("Data Import"),
                       p("When I was working on an early iteration of this project, I had chosen a cliche political
-                        topic, pulled a bunch of data and one thing I kept asking myself
-                        was 'why the [expletive] would I use Shiny for this?'. After all, if I'm analyzing static
-                        data, aren't dynamic visualizations and model parameters just window dressing? Finally, I realized
+                        topic, pulled a bunch of data, and kept asking myself
+                        'why the [expletive] would I use Shiny for this?'. After all, if we're analyzing static
+                        data, aren't dynamic visualizations and model parameters just window dressing? Then I realized
                         that the problem was with my question, not the format of the answer. So, what we have in this section
                         is a tool that passes off a search term to a reactive version of the twitteR import function. It also cleans the 
                         data but you'll have to check out the server.R for specifics"),
-                      p("Choose whatever
-                        topic you want to search for, you could do Trump, Obamacare or whatever, but I bet by the time you're grading this
-                        I bet you'll have seen a dozen of those already. So try 'Frosted Flakes', 'Spinoza', or 'Ubuntu', it's your call really. To me, 
-                        what this project ended up being about was making the jump from using tools, to making one."),
+                      p("Choose what
+                        topic you want to search for, you could do Trump (the default), Obamacare, or whatever, but I bet by the time you're grading this
+                        you'll have seen a dozen of those. So try 'Frosted Flakes', 'Spinoza', or 'Ubuntu', it's your call really. 
+                        This project ended up being about making a tool, rather than just using using them"),
+                      p("On a less poetic note, the search issues a call by default for 100 tweets in english, you can scale up N if desired, but I found
+                        that it took unreasonably long to do google API call that tags user locations for mapping with anything much larger (it's already slow)"),
+                      p("Finally, all the normal restraints on the twitter API still apply, so if you issue too many searches it will make you wait 15 minutes"),
                       br(),
                       h3("Word Cloud"),
-                      p("Placeholder")
+                      p("This is a wordcloud using the creatively named wordcloud package, there's sliders for minimum word length, maximum word length, and number of words
+                        . I think it's pretty self explanatory. Make sure to have imported some data from the Data Import section first, it won't work without something to
+                        work on."),
+                      br(),
+                      h3("User Location Mapping"),
+                      p("")
                       ),
              tabPanel("Data Import",
-                      textInput("searchkw", label = "Search For:", value = "#Trump"),
+                      fluidRow(
+                      column(4, textInput("searchkw", label = "Search For:", value = "#Trump OR #Cheeto")),
+                      column(4, textInput("tweetstopull", label = "Number of Tweets:", value = 100))),
                       p("Enter your search here. This will feed to a reactive version of searchTwitter().
                         Remember, you can use 'OR' and 'from:' to query multiple terms or specific tweeters respectively"),
                       h4("LET IT SIT UNTIL THE #TRUMP TWEETS RETURN, IT WILL BREAK OTHERWISE"),
@@ -51,10 +62,25 @@ ui <- shinyUI(fluidPage(
                       p("(if this doesn't populate your query did not return results)"),
                       tableOutput("table")),
              tabPanel("Word Cloud",
+                      fluidRow(
+                          column(4, sliderInput("minleng",
+                                      "Minimum Word Length:",
+                                      min = 1, max = 20, value = 2)),
+                          column(4, sliderInput("maxleng",
+                                      "Maximum Word Length:",
+                                      min = 1, max = 20, value = 10)),
+                          column(4, sliderInput("wordno",
+                                      "Number of Words:",
+                                      min = 1, max = 100, value = 50))),
                       plotOutput("wordcloud")),
-             tabPanel("User Location Map"),
-             tabPanel("Sentiment Analysis")
-             ))
+             tabPanel("User Location Map",
+                      p("This loads quite slowly, the one downside to mapping with dynamic search terms is that unless I include the whole gigantic
+                        Google maps locations database in the Shiny app, it has to do calls to the google maps api for each lookup. Which while slow does work!"),
+                      leafletOutput("leafmap")),
+             tabPanel("Sentiment Analysis"),
+             tabPanel("Conclusion")
+             )
+  )
 )
 
 server <- shinyServer(function(input, output) {
@@ -70,7 +96,7 @@ server <- shinyServer(function(input, output) {
   # Query Twitter
   
   twitterData <- reactive({
-    tweets <- searchTwitter(input$searchkw, n = 250, lang = "en")
+    tweets <- searchTwitter(input$searchkw, n = input$tweetstopull, lang = "en")
     twListToDF(tweets)
   })
   
@@ -83,11 +109,6 @@ server <- shinyServer(function(input, output) {
 
 
  # Word Cloud
-
-twitterData <- reactive({
-  tweets <- searchTwitter(input$searchkw, n = 250, lang = "en")
-  twListToDF(tweets)
-})
   
  output$wordcloud <- renderPlot({
    words <- enc2native(twitterData()[,c("text")])
@@ -97,19 +118,31 @@ twitterData <- reactive({
    words <- unlist(strsplit(words, " "))
    words <- removeWords(words, c(stopwords("en"), "RT", " ", ""))
    words <- sort(table(words), TRUE)
-   wordcloud(names(words), words, random.color = TRUE, colors = rainbow(10), scale = c(15, 2), max.words = 50)
+   wordcloud(names(words), words, random.color = TRUE, colors = rainbow(10), scale = c(input$maxleng, input$minleng), max.words = input$wordno)
 })
    
  
  # Associate Tweets with User Location
  
- twitterUserData <- (function(){
-   users <- lookupUsers(twitterData$screenName)
+ twitterUserData <- reactive({
+   users <- lookupUsers(twitterData()[, c("screenName")])
    usersDF <- twListToDF(users)
-   usersLocation <- !is.na(userDF$location)
-   located <- geocode(usersDF$location[usersLocation])
+   usersDF <- usersDF[!(is.na(usersDF$location) | usersDF$location == ""),]
+   locations <- geocode(usersDF$location, source = "google", output = "latlon")
+   usersDF <- cbind(usersDF, locations)
+   #usersDF <- usersDF[!is.na(usersDF[, "lon"]),]
  })
  
+ # Mapping using Leaflet
+ 
+ mapTweets <- reactive({
+   map = leaflet() %>%
+     addTiles() %>%
+     addMarkers(twitterUserData()$lon, twitterUserData()$lat, popup = twitterUserData()$screenName) %>%
+     setView(0, 0, zoom = 2)
+ })
+ 
+ output$leafmap <- renderLeaflet(mapTweets())
  
 })
 
