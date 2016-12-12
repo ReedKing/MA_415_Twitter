@@ -147,6 +147,7 @@ server <- shinyServer(function(input, output) {
  output$wordcloud <- renderPlot({
    words <- enc2native(twitterData()[,c("text")])
    words <- removeWords(words, c(stopwords("en"), "RT", "via", input$searchkw))
+   words <- sapply(words, function(row) iconv(row, "latin1", "ASCII", sub = ""))
    words <- tolower(words)
    words <- removePunctuation(words, TRUE)
    words <- sapply(words, function(row) iconv(row, "latin1", "ASCII", sub = ""))
